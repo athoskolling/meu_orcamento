@@ -15,6 +15,13 @@
       "when": 1787828307799,
       "tag": "0001_puzzling_speedball",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788307323236,
+      "tag": "0002_lush_shotgun",
+      "breakpoints": true
     }
   ]
 }

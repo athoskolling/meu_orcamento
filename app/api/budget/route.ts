@@ -30,6 +30,20 @@ function isValidMonth(value: unknown): value is string {
   return typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 }
 
+function isValidDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
 function asPositiveInteger(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0
     ? value
@@ -88,6 +102,7 @@ async function getBudgetData(month: string) {
       name: savingsGoals.name,
       targetCents: savingsGoals.targetCents,
       initialSavedCents: savingsGoals.initialSavedCents,
+      dueDate: savingsGoals.dueDate,
       color: savingsGoals.color,
       contributionCents: sql<number>`coalesce(sum(${goalContributions.amountCents}), 0)`,
       savedThisMonthCents: sql<number>`coalesce(sum(case when ${goalContributions.month} = ${month} then ${goalContributions.amountCents} else 0 end), 0)`,
@@ -100,6 +115,7 @@ async function getBudgetData(month: string) {
       savingsGoals.name,
       savingsGoals.targetCents,
       savingsGoals.initialSavedCents,
+      savingsGoals.dueDate,
       savingsGoals.color,
       savingsGoals.createdAt
     )
@@ -304,6 +320,12 @@ export async function POST(request: Request) {
       const name = typeof payload.name === "string" ? payload.name.trim() : "";
       const targetCents = asPositiveInteger(payload.targetCents);
       const initialSavedCents = asPositiveInteger(payload.initialSavedCents);
+      const dueDate =
+        payload.dueDate === undefined ||
+        payload.dueDate === null ||
+        payload.dueDate === ""
+          ? null
+          : payload.dueDate;
 
       if (
         !name ||
@@ -317,6 +339,13 @@ export async function POST(request: Request) {
         );
       }
 
+      if (dueDate !== null && !isValidDate(dueDate)) {
+        return Response.json(
+          { error: "Informe uma data limite válida ou deixe o campo vazio." },
+          { status: 400 }
+        );
+      }
+
       if (goalId && goalId > 0) {
         await db
           .update(savingsGoals)
@@ -324,6 +353,7 @@ export async function POST(request: Request) {
             name,
             targetCents,
             initialSavedCents,
+            dueDate,
             updatedAt: sql`CURRENT_TIMESTAMP`,
           })
           .where(eq(savingsGoals.id, goalId));
@@ -336,6 +366,7 @@ export async function POST(request: Request) {
           name,
           targetCents,
           initialSavedCents,
+          dueDate,
           color: GOAL_COLORS[Number(goalCount ?? 0) % GOAL_COLORS.length],
         });
       }

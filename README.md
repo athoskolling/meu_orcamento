@@ -16,7 +16,7 @@ Aplicação web para organizar renda, categorias, compras e objetivos financeiro
 
 O **Meu Orçamento** é um sistema pessoal de controle financeiro. Ele permite definir a renda de cada mês, separar limites por categoria, registrar compras e acompanhar quanto ainda está disponível.
 
-Também é possível criar objetivos financeiros, informar quanto já foi guardado e registrar novos depósitos ao longo dos meses.
+Também é possível criar objetivos financeiros com ou sem data limite, informar quanto já foi guardado e registrar novos depósitos ao longo dos meses.
 
 > A aplicação publicada possui acesso privado. O código deste repositório não contém compras, categorias, saldos ou qualquer outro dado financeiro salvo no sistema.
 
@@ -29,6 +29,7 @@ Também é possível criar objetivos financeiros, informar quanto já foi guarda
 - Cálculo automático do saldo disponível
 - Indicadores de gasto e orçamento restante
 - Criação de objetivos financeiros
+- Data limite opcional em cada objetivo
 - Registro do valor inicial já guardado
 - Depósitos mensais nos objetivos
 - Acompanhamento visual do progresso das metas

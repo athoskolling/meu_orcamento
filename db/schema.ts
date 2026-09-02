@@ -46,6 +46,7 @@ export const savingsGoals = sqliteTable("savings_goals", {
   name: text("name").notNull().unique(),
   targetCents: integer("target_cents").notNull(),
   initialSavedCents: integer("initial_saved_cents").notNull().default(0),
+  dueDate: text("due_date"),
   color: text("color").notNull().default("#3D78A3"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),

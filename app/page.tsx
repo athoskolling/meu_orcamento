@@ -110,6 +110,7 @@ type Goal = {
   name: string;
   targetCents: number;
   initialSavedCents: number;
+  dueDate: string | null;
   contributionCents: number;
   savedThisMonthCents: number;
   contributionCount: number;
@@ -206,6 +207,7 @@ export default function Home() {
   const [goalName, setGoalName] = useState("");
   const [goalTarget, setGoalTarget] = useState("");
   const [goalInitialSaved, setGoalInitialSaved] = useState("");
+  const [goalDueDate, setGoalDueDate] = useState("");
 
   const [contributionOpen, setContributionOpen] = useState(false);
   const [contributionGoalId, setContributionGoalId] = useState<number | null>(null);
@@ -311,6 +313,7 @@ export default function Home() {
     setGoalName(goal?.name ?? "");
     setGoalTarget(goal ? formatMoneyInput(goal.targetCents) : "");
     setGoalInitialSaved(goal ? formatMoneyInput(goal.initialSavedCents) : "");
+    setGoalDueDate(goal?.dueDate ?? "");
     setGoalOpen(true);
   };
 
@@ -398,6 +401,7 @@ export default function Home() {
         name: goalName,
         targetCents,
         initialSavedCents,
+        dueDate: goalDueDate || null,
       },
       editingGoalId ? "Objetivo atualizado." : "Objetivo criado."
     );
@@ -866,6 +870,12 @@ export default function Home() {
                                 { "--goal-color": goal.color } as CSSProperties
                               }
                             />
+                            {goal.dueDate && (
+                              <p className="mt-3 flex items-center gap-1.5 text-xs text-[#657089]">
+                                <CalendarDays className="size-3.5" />
+                                Data limite: {formatDate(goal.dueDate)}
+                              </p>
+                            )}
                           </div>
 
                           <Button
@@ -1275,6 +1285,18 @@ export default function Home() {
                     />
                   </div>
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="goal-due-date">Data limite (opcional)</Label>
+                <Input
+                  id="goal-due-date"
+                  type="date"
+                  value={goalDueDate}
+                  onChange={(event) => setGoalDueDate(event.target.value)}
+                />
+                <p className="text-xs leading-5 text-[#69726d]">
+                  Deixe em branco se esse objetivo não tiver prazo.
+                </p>
               </div>
               <p className="text-xs leading-5 text-[#69726d]">
                 O valor inicial serve apenas para começar o progresso correto e não será descontado da renda deste mês.
