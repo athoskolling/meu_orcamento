@@ -379,7 +379,7 @@ export async function POST(request: Request) {
       if (
         !goalId ||
         !amountCents ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(contributedAt) ||
+        !isValidDate(contributedAt) ||
         !contributedAt.startsWith(`${month}-`)
       ) {
         return Response.json(
@@ -402,6 +402,55 @@ export async function POST(request: Request) {
         goalId,
         month,
         amountCents,
+        contributedAt,
+      });
+    } else if (action === "withdraw-goal-contribution") {
+      const goalId = asPositiveInteger(payload.goalId);
+      const amountCents = asPositiveInteger(payload.amountCents);
+      const contributedAt =
+        typeof payload.contributedAt === "string" ? payload.contributedAt : "";
+
+      if (
+        !goalId ||
+        !amountCents ||
+        !isValidDate(contributedAt) ||
+        !contributedAt.startsWith(`${month}-`)
+      ) {
+        return Response.json(
+          { error: "Informe um valor e uma data válidos para retirar." },
+          { status: 400 }
+        );
+      }
+
+      const [goal] = await db
+        .select({
+          id: savingsGoals.id,
+          initialSavedCents: savingsGoals.initialSavedCents,
+          contributionCents: sql<number>`coalesce(sum(${goalContributions.amountCents}), 0)`,
+        })
+        .from(savingsGoals)
+        .leftJoin(goalContributions, eq(savingsGoals.id, goalContributions.goalId))
+        .where(eq(savingsGoals.id, goalId))
+        .groupBy(savingsGoals.id, savingsGoals.initialSavedCents)
+        .limit(1);
+
+      if (!goal) {
+        return Response.json({ error: "Objetivo não encontrado." }, { status: 404 });
+      }
+
+      const savedCents =
+        goal.initialSavedCents + Number(goal.contributionCents ?? 0);
+      if (amountCents > savedCents) {
+        return Response.json(
+          { error: "Você não pode retirar mais do que está guardado." },
+          { status: 400 }
+        );
+      }
+
+      await db.insert(goalContributions).values({
+        goalId,
+        month,
+        amountCents: -amountCents,
         contributedAt,
       });
     } else if (action === "delete-goal") {

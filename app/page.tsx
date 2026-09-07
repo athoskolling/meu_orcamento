@@ -15,6 +15,7 @@ import {
   CircleDollarSign,
   Landmark,
   Loader2,
+  Minus,
   Pencil,
   PiggyBank,
   Plus,
@@ -216,6 +217,13 @@ export default function Home() {
     defaultDate(currentMonth())
   );
 
+  const [withdrawalOpen, setWithdrawalOpen] = useState(false);
+  const [withdrawalGoalId, setWithdrawalGoalId] = useState<number | null>(null);
+  const [withdrawalAmount, setWithdrawalAmount] = useState("");
+  const [withdrawalDate, setWithdrawalDate] = useState(() =>
+    defaultDate(currentMonth())
+  );
+
   const loadBudget = useCallback(async (selectedMonth: string) => {
     setLoading(true);
     setError("");
@@ -285,6 +293,7 @@ export default function Home() {
     setMonth(selectedMonth);
     setPurchaseDate(defaultDate(selectedMonth));
     setContributionDate(defaultDate(selectedMonth));
+    setWithdrawalDate(defaultDate(selectedMonth));
   };
 
   const openCategoryDialog = (category?: Category) => {
@@ -322,6 +331,13 @@ export default function Home() {
     setContributionAmount("");
     setContributionDate(defaultDate(month));
     setContributionOpen(true);
+  };
+
+  const openWithdrawalDialog = (goalId: number) => {
+    setWithdrawalGoalId(goalId);
+    setWithdrawalAmount("");
+    setWithdrawalDate(defaultDate(month));
+    setWithdrawalOpen(true);
   };
 
   const saveIncome = async (event: FormEvent) => {
@@ -427,6 +443,32 @@ export default function Home() {
     if (saved) setContributionOpen(false);
   };
 
+  const saveWithdrawal = async (event: FormEvent) => {
+    event.preventDefault();
+    const amountCents = moneyToCents(withdrawalAmount);
+    const goal = data?.goals.find((item) => item.id === withdrawalGoalId);
+
+    if (!withdrawalGoalId || !amountCents || !goal) {
+      toast.error("Informe quanto deseja retirar.");
+      return;
+    }
+    if (amountCents > goal.savedCents) {
+      toast.error("Você não pode retirar mais do que está guardado.");
+      return;
+    }
+
+    const saved = await runAction(
+      {
+        action: "withdraw-goal-contribution",
+        goalId: withdrawalGoalId,
+        amountCents,
+        contributedAt: withdrawalDate,
+      },
+      "Dinheiro retirado do objetivo."
+    );
+    if (saved) setWithdrawalOpen(false);
+  };
+
   const deleteGoal = async (goalId: number) => {
     await runAction({ action: "delete-goal", goalId }, "Objetivo removido.");
   };
@@ -523,7 +565,7 @@ export default function Home() {
               <SummaryCard
                 label="Livre para gastar agora"
                 value={formatMoney(data.balanceCents)}
-                detail="Depois das compras e do que foi guardado neste mês"
+                detail="Depois das compras, depósitos e retiradas deste mês"
                 icon={<CircleDollarSign />}
                 tone="green"
               />
@@ -537,7 +579,11 @@ export default function Home() {
               <SummaryCard
                 label="Guardado nos objetivos"
                 value={formatMoney(data.totalSavedCents)}
-                detail={`${formatMoney(data.savedThisMonthCents)} separados em ${formatMonthLabel(month).toLowerCase()}`}
+                detail={
+                  data.savedThisMonthCents >= 0
+                    ? `${formatMoney(data.savedThisMonthCents)} separados em ${formatMonthLabel(month).toLowerCase()}`
+                    : `${formatMoney(Math.abs(data.savedThisMonthCents))} retirados em ${formatMonthLabel(month).toLowerCase()}`
+                }
                 icon={<Target />}
                 tone="blue"
               />
@@ -726,7 +772,7 @@ export default function Home() {
                       {formatMoney(data.balanceCents)}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-[#c9ddd7]">
-                      Esse é o que sobra da renda após as compras e o dinheiro separado para objetivos neste mês.
+                      Esse é o que sobra após as compras e os valores guardados ou retirados dos objetivos neste mês.
                     </p>
                   </div>
                   <div className="space-y-3">
@@ -741,9 +787,13 @@ export default function Home() {
                       negative
                     />
                     <BudgetLine
-                      label="Guardado nos objetivos"
-                      value={data.savedThisMonthCents}
-                      negative
+                      label={
+                        data.savedThisMonthCents >= 0
+                          ? "Guardado nos objetivos"
+                          : "Retirado dos objetivos"
+                      }
+                      value={Math.abs(data.savedThisMonthCents)}
+                      negative={data.savedThisMonthCents > 0}
                     />
                   </div>
                   {data.incomeCents === 0 && (
@@ -764,7 +814,7 @@ export default function Home() {
                   Objetivos
                 </CardTitle>
                 <CardDescription>
-                  Separe dinheiro para planos maiores e acompanhe o progresso de cada um.
+                  Guarde ou retire dinheiro e acompanhe o progresso de cada plano.
                 </CardDescription>
                 <CardAction>
                   <Button size="sm" onClick={() => openGoalDialog()}>
@@ -776,9 +826,12 @@ export default function Home() {
                 {data.goals.length ? (
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {data.goals.map((goal) => {
-                      const percentage = Math.min(
-                        100,
-                        Math.round((goal.savedCents / goal.targetCents) * 100)
+                      const percentage = Math.max(
+                        0,
+                        Math.min(
+                          100,
+                          Math.round((goal.savedCents / goal.targetCents) * 100)
+                        )
                       );
                       const completed = goal.savedCents >= goal.targetCents;
 
@@ -859,7 +912,9 @@ export default function Home() {
                                   ? "Meta completa"
                                   : `${formatMoney(goal.remainingCents)} faltando`}
                                 <br />
-                                {formatMoney(goal.savedThisMonthCents)} neste mês
+                                {goal.savedThisMonthCents >= 0
+                                  ? `${formatMoney(goal.savedThisMonthCents)} guardados neste mês`
+                                  : `${formatMoney(Math.abs(goal.savedThisMonthCents))} retirados neste mês`}
                               </p>
                             </div>
                             <Progress
@@ -878,14 +933,25 @@ export default function Home() {
                             )}
                           </div>
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="mt-4 w-full border-[#ccd3e3] text-[#3d527f] hover:bg-[#eef1f8]"
-                            onClick={() => openContributionDialog(goal.id)}
-                          >
-                            <Plus /> Guardar dinheiro
-                          </Button>
+                          <div className="mt-4 grid grid-cols-2 gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-[#ccd3e3] text-[#3d527f] hover:bg-[#eef1f8]"
+                              onClick={() => openContributionDialog(goal.id)}
+                            >
+                              <Plus /> Guardar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-[#e3d2ca] text-[#8c4e37] hover:bg-[#faf0eb]"
+                              onClick={() => openWithdrawalDialog(goal.id)}
+                              disabled={goal.savedCents <= 0}
+                            >
+                              <Minus /> Desguardar
+                            </Button>
+                          </div>
                         </article>
                       );
                     })}
@@ -1375,6 +1441,76 @@ export default function Home() {
               </Button>
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="animate-spin" />} Guardar valor
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={withdrawalOpen} onOpenChange={setWithdrawalOpen}>
+        <DialogContent>
+          <form onSubmit={saveWithdrawal}>
+            <DialogHeader>
+              <DialogTitle>Desguardar dinheiro</DialogTitle>
+              <DialogDescription>
+                O valor será retirado do objetivo
+                {withdrawalGoalId
+                  ? ` “${data?.goals.find((goal) => goal.id === withdrawalGoalId)?.name ?? "selecionado"}”`
+                  : " selecionado"}{" "}
+                e voltará para o livre para gastar em {formatMonthLabel(month)}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="withdrawal-amount">Valor para retirar</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#747b77]">
+                    R$
+                  </span>
+                  <Input
+                    id="withdrawal-amount"
+                    autoFocus
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={withdrawalAmount}
+                    onChange={(event) => setWithdrawalAmount(event.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="withdrawal-date">Data</Label>
+                <Input
+                  id="withdrawal-date"
+                  type="date"
+                  min={`${month}-01`}
+                  max={`${month}-31`}
+                  value={withdrawalDate}
+                  onChange={(event) => setWithdrawalDate(event.target.value)}
+                />
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-[#69726d]">
+              Disponível no objetivo:{" "}
+              {formatMoney(
+                data?.goals.find((goal) => goal.id === withdrawalGoalId)
+                  ?.savedCents ?? 0
+              )}
+            </p>
+            <DialogFooter className="mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setWithdrawalOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="bg-[#8c4e37] text-white hover:bg-[#75402e]"
+              >
+                {saving && <Loader2 className="animate-spin" />} Desguardar valor
               </Button>
             </DialogFooter>
           </form>
