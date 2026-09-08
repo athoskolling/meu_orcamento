@@ -37,6 +37,7 @@ export const purchases = sqliteTable("purchases", {
     .notNull()
     .references(() => categories.id, { onDelete: "cascade" }),
   description: text("description").notNull(),
+  notes: text("notes"),
   amountCents: integer("amount_cents").notNull(),
   purchasedAt: text("purchased_at").notNull(),
   paymentSource: text("payment_source", { enum: ["cash", "food"] }).notNull().default("cash"),

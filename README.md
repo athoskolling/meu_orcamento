@@ -28,6 +28,7 @@ Também é possível criar objetivos financeiros com ou sem data limite, informa
 - Criação, edição e exclusão de categorias
 - Limite de gastos individual por categoria
 - Registro e exclusão de compras
+- Observações opcionais que podem ser adicionadas, editadas ou removidas em cada compra
 - Cálculo automático do saldo disponível
 - Indicadores de gasto e orçamento restante
 - Controle de compras parceladas, parcelas pagas e valores restantes
@@ -58,6 +59,12 @@ Também é possível criar objetivos financeiros com ou sem data limite, informa
 - Pagamentos iniciais são apenas histórico e não criam gastos. Parcelas pendentes não são descontadas do saldo até o pagamento.
 - Ao excluir uma compra vinculada (ou sua categoria), a parcela volta a ficar pendente. Para excluir um parcelamento com pagamentos registrados, desfaça esses pagamentos primeiro.
 - O progresso é global, enquanto o resumo de pendências respeita o mês selecionado. Parcelas futuras são pagas selecionando o mês correspondente ou um posterior.
+
+## Observações nas compras
+
+- Campo opcional de até 1.000 caracteres ao registrar uma compra.
+- Na lista de compras, use **Adicionar observação** ou **Editar observação**, inclusive em compras antigas e parcelas registradas.
+- Deixe em branco e salve para remover a anotação. Observações não alteram valores, categorias, parcelas nem saldos.
 
 ## Tecnologias
 

@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { getDb } from "../../../db";
+import { getDb, getRawDb } from "../../../db";
 import { calculateBalances } from "../../../lib/budget-balances";
 import { getInstallments, handleInstallmentAction } from "../../../db/installments";
 import {
@@ -90,6 +90,7 @@ async function getBudgetData(month: string) {
       categoryName: categories.name,
       categoryColor: categories.color,
       description: purchases.description,
+      notes: purchases.notes,
       amountCents: purchases.amountCents,
       purchasedAt: purchases.purchasedAt,
       paymentSource: purchases.paymentSource,
@@ -283,6 +284,11 @@ export async function POST(request: Request) {
         .delete(categories)
         .where(and(eq(categories.id, categoryId), eq(categories.month, month)));
     } else if (action === "add-purchase") {
+      if (payload.notes !== undefined && payload.notes !== null &&
+          (typeof payload.notes !== "string" || payload.notes.length > 1000)) {
+        return Response.json({ error: "Use até 1.000 caracteres nas observações." }, { status: 400 });
+      }
+      const notes = typeof payload.notes === "string" ? payload.notes.trim() || null : null;
       const paymentSource = payload.paymentSource === undefined ? "cash" : payload.paymentSource;
       if (paymentSource !== "cash" && paymentSource !== "food") {
         return Response.json({ error: "Escolha dinheiro livre ou vale-alimentação." }, { status: 400 });
@@ -325,7 +331,18 @@ export async function POST(request: Request) {
         amountCents,
         purchasedAt,
         paymentSource,
+        notes,
       });
+    } else if (action === "update-purchase-notes") {
+      const purchaseId = asPositiveInteger(payload.purchaseId);
+      if (!purchaseId || typeof payload.notes !== "string" || payload.notes.length > 1000) {
+        return Response.json({ error: "Informe uma compra válida e uma observação de até 1.000 caracteres." }, { status: 400 });
+      }
+      const result = await getRawDb().prepare("UPDATE purchases SET notes = ? WHERE id = ? AND month = ?")
+        .bind(payload.notes.trim() || null, purchaseId, month).run();
+      if (!result.meta.changes) {
+        return Response.json({ error: "Compra não encontrada neste mês. Atualize o orçamento." }, { status: 404 });
+      }
     } else if (action === "delete-purchase") {
       const purchaseId = asPositiveInteger(payload.purchaseId);
       if (!purchaseId) {

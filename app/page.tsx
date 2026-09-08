@@ -85,6 +85,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Toaster } from "@/components/ui/sonner";
+import { Textarea } from "@/components/ui/textarea";
 import { Installments } from "./installments";
 import type { InstallmentSummary } from "../lib/installments";
 
@@ -104,6 +105,7 @@ type Purchase = {
   categoryName: string;
   categoryColor: string;
   description: string;
+  notes: string | null;
   amountCents: number;
   purchasedAt: string;
   paymentSource: "cash" | "food";
@@ -208,6 +210,9 @@ export default function Home() {
 
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [purchaseDescription, setPurchaseDescription] = useState("");
+  const [purchaseNotes, setPurchaseNotes] = useState("");
+  const [editingNotesPurchase, setEditingNotesPurchase] = useState<Purchase | null>(null);
+  const [editedNotes, setEditedNotes] = useState("");
   const [purchaseAmount, setPurchaseAmount] = useState("");
   const [purchaseCategoryId, setPurchaseCategoryId] = useState("");
   const [purchasePaymentSource, setPurchasePaymentSource] = useState<"cash" | "food">("cash");
@@ -301,6 +306,7 @@ export default function Home() {
   };
 
   const changeMonth = (selectedMonth: string) => {
+    setEditingNotesPurchase(null);
     setMonth(selectedMonth);
     setPurchaseDate(defaultDate(selectedMonth));
     setContributionDate(defaultDate(selectedMonth));
@@ -317,6 +323,7 @@ export default function Home() {
   const openPurchaseDialog = (categoryId?: number) => {
     setPurchasePaymentSource("cash");
     setPurchaseDescription("");
+    setPurchaseNotes("");
     setPurchaseAmount("");
     setPurchaseCategoryId(
       categoryId
@@ -395,6 +402,7 @@ export default function Home() {
       {
         action: "add-purchase",
         description: purchaseDescription,
+        notes: purchaseNotes,
         amountCents,
         categoryId: Number(purchaseCategoryId),
         purchasedAt: purchaseDate,
@@ -1052,6 +1060,19 @@ export default function Home() {
                                 {purchase.categoryName}
                               </span>
                             </div>
+                            {purchase.notes && (
+                              <p className="mt-2 max-w-[160px] whitespace-pre-wrap break-words text-sm text-[#69726d] sm:max-w-sm">{purchase.notes}</p>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="mt-1 h-auto whitespace-normal px-0 py-1 text-sm text-[#3b7a68]"
+                              disabled={saving}
+                              aria-label={`${purchase.notes ? "Editar" : "Adicionar"} observação de ${purchase.description}`}
+                              onClick={() => { setEditingNotesPurchase(purchase); setEditedNotes(purchase.notes ?? ""); }}
+                            >
+                              <Pencil className="size-3.5" /> {purchase.notes ? "Editar observação" : "Adicionar observação"}
+                            </Button>
                           </TableCell>
                           <TableCell className="hidden sm:table-cell">
                             <Badge variant="outline" className="font-normal">
@@ -1243,7 +1264,7 @@ export default function Home() {
       </Dialog>
 
       <Dialog open={purchaseOpen} onOpenChange={setPurchaseOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto">
           <form onSubmit={savePurchase}>
             <DialogHeader>
               <DialogTitle>Registrar compra</DialogTitle>
@@ -1310,6 +1331,19 @@ export default function Home() {
                 </p>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="purchase-notes">Observações (opcional)</Label>
+                <Textarea
+                  id="purchase-notes"
+                  value={purchaseNotes}
+                  onChange={(event) => setPurchaseNotes(event.target.value)}
+                  maxLength={1000}
+                  rows={3}
+                  placeholder="Ex.: Compra dividida com alguém, detalhes do produto…"
+                  aria-describedby="purchase-notes-limit"
+                />
+                <p id="purchase-notes-limit" className="text-sm text-[#69726d]">{purchaseNotes.length}/1.000 caracteres</p>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="purchase-category">Categoria</Label>
                 <Select
                   value={purchaseCategoryId}
@@ -1351,6 +1385,32 @@ export default function Home() {
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="animate-spin" />} Registrar compra
               </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingNotesPurchase} onOpenChange={(open) => { if (!open) setEditingNotesPurchase(null); }}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto">
+          <form onSubmit={async (event) => {
+            event.preventDefault();
+            if (!editingNotesPurchase) return;
+            if (await runAction({ action: "update-purchase-notes", purchaseId: editingNotesPurchase.id, notes: editedNotes }, "Observação atualizada.")) {
+              setEditingNotesPurchase(null);
+            }
+          }}>
+            <DialogHeader>
+              <DialogTitle>Observação da compra</DialogTitle>
+              <DialogDescription>{editingNotesPurchase?.description}. Deixe em branco para remover a observação.</DialogDescription>
+            </DialogHeader>
+            <div className="my-5 space-y-2">
+              <Label htmlFor="edit-purchase-notes">Observações (opcional)</Label>
+              <Textarea id="edit-purchase-notes" value={editedNotes} onChange={(event) => setEditedNotes(event.target.value)} maxLength={1000} rows={5} autoFocus aria-describedby="edit-notes-limit" />
+              <p id="edit-notes-limit" className="text-sm text-[#69726d]">{editedNotes.length}/1.000 caracteres</p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingNotesPurchase(null)}>Cancelar</Button>
+              <Button type="submit" disabled={saving}>{saving && <Loader2 className="animate-spin" />} Salvar observação</Button>
             </DialogFooter>
           </form>
         </DialogContent>
