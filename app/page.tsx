@@ -104,6 +104,7 @@ type Purchase = {
   description: string;
   amountCents: number;
   purchasedAt: string;
+  paymentSource: "cash" | "food";
 };
 
 type Goal = {
@@ -123,6 +124,10 @@ type Goal = {
 type BudgetData = {
   month: string;
   incomeCents: number;
+  foodAllowanceCents: number;
+  cashSpentCents: number;
+  foodSpentCents: number;
+  foodBalanceCents: number;
   totalBudgetCents: number;
   totalSpentCents: number;
   balanceCents: number;
@@ -191,6 +196,7 @@ export default function Home() {
 
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [incomeValue, setIncomeValue] = useState("");
+  const [foodAllowanceValue, setFoodAllowanceValue] = useState("");
 
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
@@ -201,6 +207,7 @@ export default function Home() {
   const [purchaseDescription, setPurchaseDescription] = useState("");
   const [purchaseAmount, setPurchaseAmount] = useState("");
   const [purchaseCategoryId, setPurchaseCategoryId] = useState("");
+  const [purchasePaymentSource, setPurchasePaymentSource] = useState<"cash" | "food">("cash");
   const [purchaseDate, setPurchaseDate] = useState(() => defaultDate(currentMonth()));
 
   const [goalOpen, setGoalOpen] = useState(false);
@@ -286,6 +293,7 @@ export default function Home() {
 
   const openIncomeDialog = () => {
     setIncomeValue(formatMoneyInput(data?.incomeCents ?? 0));
+    setFoodAllowanceValue(formatMoneyInput(data?.foodAllowanceCents ?? 0));
     setIncomeOpen(true);
   };
 
@@ -304,6 +312,7 @@ export default function Home() {
   };
 
   const openPurchaseDialog = (categoryId?: number) => {
+    setPurchasePaymentSource("cash");
     setPurchaseDescription("");
     setPurchaseAmount("");
     setPurchaseCategoryId(
@@ -343,11 +352,12 @@ export default function Home() {
   const saveIncome = async (event: FormEvent) => {
     event.preventDefault();
     const incomeCents = moneyToCents(incomeValue);
-    if (incomeCents === null) {
+    const foodAllowanceCents = moneyToCents(foodAllowanceValue);
+    if (incomeCents === null || foodAllowanceCents === null) {
       toast.error("Digite uma renda válida.");
       return;
     }
-    if (await runAction({ action: "set-income", incomeCents }, "Renda atualizada.")) {
+    if (await runAction({ action: "set-income", incomeCents, foodAllowanceCents }, "Renda atualizada.")) {
       setIncomeOpen(false);
     }
   };
@@ -385,6 +395,7 @@ export default function Home() {
         amountCents,
         categoryId: Number(purchaseCategoryId),
         purchasedAt: purchaseDate,
+        paymentSource: purchasePaymentSource,
       },
       "Compra registrada."
     );
@@ -559,20 +570,27 @@ export default function Home() {
         ) : data ? (
           <>
             <section
-              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
               aria-label="Resumo do mês"
             >
               <SummaryCard
                 label="Livre para gastar agora"
                 value={formatMoney(data.balanceCents)}
-                detail="Depois das compras, depósitos e retiradas deste mês"
+                detail="Dinheiro livre após compras e objetivos, sem incluir o vale"
                 icon={<CircleDollarSign />}
-                tone="green"
+                tone={data.balanceCents >= 0 ? "green" : "red"}
+              />
+              <SummaryCard
+                label="Vale-alimentação disponível"
+                value={formatMoney(data.foodBalanceCents)}
+                detail={`${formatMoney(data.foodSpentCents)} usados de ${formatMoney(data.foodAllowanceCents)} no mês`}
+                icon={<Landmark />}
+                tone={data.foodBalanceCents >= 0 ? "orange" : "red"}
               />
               <SummaryCard
                 label="Gasto até agora"
                 value={formatMoney(data.totalSpentCents)}
-                detail={`${data.purchases.length} ${data.purchases.length === 1 ? "compra registrada" : "compras registradas"}`}
+                detail="Total de compras no dinheiro livre e no vale"
                 icon={<ReceiptText />}
                 tone="orange"
               />
@@ -588,12 +606,12 @@ export default function Home() {
                 tone="blue"
               />
               <SummaryCard
-                label={data.unallocatedCents >= 0 ? "Ainda sem destino" : "Acima da renda"}
+                label={data.unallocatedCents >= 0 ? "Sem destino no planejamento" : "Limites acima da renda"}
                 value={formatMoney(Math.abs(data.unallocatedCents))}
                 detail={
                   data.unallocatedCents >= 0
-                    ? "Você ainda pode distribuir esse valor"
-                    : "Reduza os limites das categorias"
+                    ? "Soma livre + vale, menos limites e objetivos; não é saldo livre"
+                    : "Os limites e objetivos excedem a soma de dinheiro livre e vale"
                 }
                 icon={<PiggyBank />}
                 tone={data.unallocatedCents >= 0 ? "blue" : "red"}
@@ -605,7 +623,7 @@ export default function Home() {
                 <CardHeader className="gap-1 px-5 sm:px-6">
                   <CardTitle className="text-xl tracking-[-0.025em]">Categorias</CardTitle>
                   <CardDescription>
-                    Veja quanto já foi usado e quanto ainda está livre.
+                    Os limites incluem compras no dinheiro livre e no vale. Confira também o saldo de cada fonte.
                   </CardDescription>
                   <CardAction>
                     <Button variant="outline" size="sm" onClick={() => openCategoryDialog()}>
@@ -766,26 +784,29 @@ export default function Home() {
                 <CardContent className="space-y-5 px-5 sm:px-6">
                   <div className="rounded-2xl bg-[#173d35] p-5 text-white">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#b8d1c8]">
-                      Depois de compras e objetivos
+                      Dinheiro livre restante
                     </p>
                     <p className="mt-2 text-3xl font-semibold tracking-[-0.04em]">
                       {formatMoney(data.balanceCents)}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-[#c9ddd7]">
-                      Esse é o que sobra após as compras e os valores guardados ou retirados dos objetivos neste mês.
+                      Após compras no dinheiro livre e valores guardados ou retirados dos objetivos. O vale fica separado.
                     </p>
                   </div>
                   <div className="space-y-3">
-                    <BudgetLine label="Renda do mês" value={data.incomeCents} />
+                    <BudgetLine label="Renda livre" value={data.incomeCents} />
+                    <BudgetLine label="Vale-alimentação" value={data.foodAllowanceCents} />
                     <BudgetLine
                       label="Limites definidos"
                       value={data.totalBudgetCents}
                     />
                     <BudgetLine
-                      label="Compras registradas"
-                      value={data.totalSpentCents}
+                      label="Compras no dinheiro livre"
+                      value={data.cashSpentCents}
                       negative
                     />
+                    <BudgetLine label="Compras no vale" value={data.foodSpentCents} negative />
+                    <BudgetLine label="Saldo do vale" value={data.foodBalanceCents} />
                     <BudgetLine
                       label={
                         data.savedThisMonthCents >= 0
@@ -796,7 +817,7 @@ export default function Home() {
                       negative={data.savedThisMonthCents > 0}
                     />
                   </div>
-                  {data.incomeCents === 0 && (
+                  {data.incomeCents === 0 && data.foodAllowanceCents === 0 && (
                     <Button className="w-full" onClick={openIncomeDialog}>
                       <Landmark /> Informar minha renda
                     </Button>
@@ -1014,6 +1035,9 @@ export default function Home() {
                             <p className="max-w-[150px] truncate font-medium sm:max-w-none">
                               {purchase.description}
                             </p>
+                            <p className="mt-1 text-sm text-[#69726d]">
+                              {purchase.paymentSource === "food" ? "Vale-alimentação" : "Dinheiro livre"}
+                            </p>
                             <div className="mt-1 flex items-center gap-1.5 sm:hidden">
                               <span
                                 className="size-2 rounded-full"
@@ -1105,11 +1129,11 @@ export default function Home() {
             <DialogHeader>
               <DialogTitle>Renda de {formatMonthLabel(month)}</DialogTitle>
               <DialogDescription>
-                Informe quanto você terá disponível no mês. Use o valor líquido que realmente pode gastar.
+                Separe o dinheiro de uso livre do vale-alimentação. Informe zero se não receber vale neste mês.
               </DialogDescription>
             </DialogHeader>
             <div className="mt-6 space-y-2">
-              <Label htmlFor="income">Valor da renda</Label>
+              <Label htmlFor="income">Renda livre</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#747b77]">
                   R$
@@ -1124,6 +1148,21 @@ export default function Home() {
                   className="pl-10"
                 />
               </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="food-allowance">Vale-alimentação</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#747b77]">R$</span>
+                <Input
+                  id="food-allowance"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  value={foodAllowanceValue}
+                  onChange={(event) => setFoodAllowanceValue(event.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <p className="text-sm text-[#69726d]">O vale não entra no saldo livre nem financia objetivos.</p>
             </div>
             <DialogFooter className="mt-6">
               <Button
@@ -1204,7 +1243,7 @@ export default function Home() {
             <DialogHeader>
               <DialogTitle>Registrar compra</DialogTitle>
               <DialogDescription>
-                O valor será descontado automaticamente do saldo geral e da categoria escolhida.
+                O valor será descontado da fonte de pagamento e do limite da categoria escolhida.
               </DialogDescription>
             </DialogHeader>
             <div className="mt-6 grid gap-4">
@@ -1247,6 +1286,23 @@ export default function Home() {
                     onChange={(event) => setPurchaseDate(event.target.value)}
                   />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="purchase-payment-source">Pagar com</Label>
+                <Select value={purchasePaymentSource} onValueChange={(value) => {
+                  if (value === "cash" || value === "food") setPurchasePaymentSource(value);
+                }}>
+                  <SelectTrigger id="purchase-payment-source" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Dinheiro livre</SelectItem>
+                    <SelectItem value="food">Vale-alimentação</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-[#69726d]">
+                  Saldo desta fonte: {formatMoney(purchasePaymentSource === "food" ? data?.foodBalanceCents ?? 0 : data?.balanceCents ?? 0)}
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="purchase-category">Categoria</Label>

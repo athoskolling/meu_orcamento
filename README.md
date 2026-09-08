@@ -22,7 +22,9 @@ Também é possível criar objetivos financeiros com ou sem data limite, informa
 
 ## Funcionalidades
 
-- Definição da renda mensal
+- Renda mensal dividida entre dinheiro livre e vale-alimentação
+- Escolha da fonte de pagamento em cada compra
+- Saldos independentes para dinheiro livre e vale
 - Criação, edição e exclusão de categorias
 - Limite de gastos individual por categoria
 - Registro e exclusão de compras
@@ -36,6 +38,15 @@ Também é possível criar objetivos financeiros com ou sem data limite, informa
 - Acompanhamento visual do progresso das metas
 - Interface responsiva para celular e computador
 - Persistência dos dados em banco de dados
+
+## Renda livre e vale-alimentação
+
+- Em **Definir renda**, informe separadamente a renda livre e o vale de cada mês (zero quando não houver vale).
+- Em **Registrar compra → Pagar com**, escolha dinheiro livre ou vale-alimentação. Cada compra reduz somente o saldo escolhido e o limite da categoria.
+- Guardar e desguardar nos objetivos afeta apenas o dinheiro livre; o vale não financia objetivos.
+- Os limites das categorias abrangem as duas fontes. O indicador de planejamento soma livre + vale e desconta limites e objetivos: ele não representa dinheiro de uso livre.
+- Rendas e compras antigas continuam como dinheiro livre; o vale começa em zero. A migração adiciona campos sem apagar registros.
+- Saldos negativos continuam visíveis quando há gastos acima do disponível, sem transferir a diferença entre as fontes.
 
 ## Tecnologias
 

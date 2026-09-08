@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "../../../db";
+import { calculateBalances } from "../../../lib/budget-balances";
 import {
   categories,
   goalContributions,
@@ -45,7 +46,7 @@ function isValidDate(value: unknown): value is string {
 }
 
 function asPositiveInteger(value: unknown) {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
     ? value
     : null;
 }
@@ -54,7 +55,7 @@ async function getBudgetData(month: string) {
   const db = getDb();
 
   const [plan] = await db
-    .select({ incomeCents: monthlyPlans.incomeCents })
+    .select({ incomeCents: monthlyPlans.incomeCents, foodAllowanceCents: monthlyPlans.foodAllowanceCents })
     .from(monthlyPlans)
     .where(eq(monthlyPlans.month, month))
     .limit(1);
@@ -66,6 +67,7 @@ async function getBudgetData(month: string) {
       budgetCents: categories.budgetCents,
       color: categories.color,
       spentCents: sql<number>`coalesce(sum(${purchases.amountCents}), 0)`,
+      foodSpentCents: sql<number>`coalesce(sum(case when ${purchases.paymentSource} = 'food' then ${purchases.amountCents} else 0 end), 0)`,
       purchaseCount: sql<number>`count(${purchases.id})`,
     })
     .from(categories)
@@ -89,6 +91,7 @@ async function getBudgetData(month: string) {
       description: purchases.description,
       amountCents: purchases.amountCents,
       purchasedAt: purchases.purchasedAt,
+      paymentSource: purchases.paymentSource,
     })
     .from(purchases)
     .innerJoin(categories, eq(purchases.categoryId, categories.id))
@@ -132,6 +135,7 @@ async function getBudgetData(month: string) {
   });
 
   const incomeCents = plan?.incomeCents ?? 0;
+  const foodAllowanceCents = plan?.foodAllowanceCents ?? 0;
   const totalBudgetCents = normalizedCategories.reduce(
     (total, category) => total + category.budgetCents,
     0
@@ -140,6 +144,8 @@ async function getBudgetData(month: string) {
     (total, category) => total + category.spentCents,
     0
   );
+  const foodSpentCents = categoryRows.reduce((total, category) => total + Number(category.foodSpentCents), 0);
+  const cashSpentCents = totalSpentCents - foodSpentCents;
   const goals = goalRows.map((goal) => {
     const contributionCents = Number(goal.contributionCents ?? 0);
     const savedCents = goal.initialSavedCents + contributionCents;
@@ -164,10 +170,11 @@ async function getBudgetData(month: string) {
   return {
     month,
     incomeCents,
+    foodAllowanceCents,
+    cashSpentCents,
+    foodSpentCents,
     totalBudgetCents,
-    totalSpentCents,
-    balanceCents: incomeCents - totalSpentCents - savedThisMonthCents,
-    unallocatedCents: incomeCents - totalBudgetCents - savedThisMonthCents,
+    ...calculateBalances({ incomeCents, foodAllowanceCents, cashSpentCents, foodSpentCents, savedThisMonthCents, totalBudgetCents }),
     totalSavedCents,
     savedThisMonthCents,
     categories: normalizedCategories,
@@ -217,16 +224,19 @@ export async function POST(request: Request) {
 
     if (action === "set-income") {
       const incomeCents = asPositiveInteger(payload.incomeCents);
-      if (incomeCents === null) {
+      const foodAllowanceCents = payload.foodAllowanceCents === undefined
+        ? undefined
+        : asPositiveInteger(payload.foodAllowanceCents);
+      if (incomeCents === null || foodAllowanceCents === null) {
         return Response.json({ error: "Informe uma renda válida." }, { status: 400 });
       }
 
       await db
         .insert(monthlyPlans)
-        .values({ month, incomeCents })
+        .values({ month, incomeCents, foodAllowanceCents })
         .onConflictDoUpdate({
           target: monthlyPlans.month,
-          set: { incomeCents, updatedAt: sql`CURRENT_TIMESTAMP` },
+          set: { incomeCents, ...(foodAllowanceCents !== undefined ? { foodAllowanceCents } : {}), updatedAt: sql`CURRENT_TIMESTAMP` },
         });
     } else if (action === "save-category") {
       const name = typeof payload.name === "string" ? payload.name.trim() : "";
@@ -268,6 +278,10 @@ export async function POST(request: Request) {
         .delete(categories)
         .where(and(eq(categories.id, categoryId), eq(categories.month, month)));
     } else if (action === "add-purchase") {
+      const paymentSource = payload.paymentSource === undefined ? "cash" : payload.paymentSource;
+      if (paymentSource !== "cash" && paymentSource !== "food") {
+        return Response.json({ error: "Escolha dinheiro livre ou vale-alimentação." }, { status: 400 });
+      }
       const categoryId = asPositiveInteger(payload.categoryId);
       const amountCents = asPositiveInteger(payload.amountCents);
       const description =
@@ -305,6 +319,7 @@ export async function POST(request: Request) {
         description,
         amountCents,
         purchasedAt,
+        paymentSource,
       });
     } else if (action === "delete-purchase") {
       const purchaseId = asPositiveInteger(payload.purchaseId);

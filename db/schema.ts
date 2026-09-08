@@ -10,6 +10,7 @@ export const monthlyPlans = sqliteTable("monthly_plans", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   month: text("month").notNull().unique(),
   incomeCents: integer("income_cents").notNull().default(0),
+  foodAllowanceCents: integer("food_allowance_cents").notNull().default(0),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -38,6 +39,7 @@ export const purchases = sqliteTable("purchases", {
   description: text("description").notNull(),
   amountCents: integer("amount_cents").notNull(),
   purchasedAt: text("purchased_at").notNull(),
+  paymentSource: text("payment_source", { enum: ["cash", "food"] }).notNull().default("cash"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
