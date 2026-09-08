@@ -40,6 +40,18 @@ export const purchases = sqliteTable("purchases", {
   amountCents: integer("amount_cents").notNull(),
   purchasedAt: text("purchased_at").notNull(),
   paymentSource: text("payment_source", { enum: ["cash", "food"] }).notNull().default("cash"),
+  installmentPlanId: integer("installment_plan_id").references(() => installmentPlans.id, { onDelete: "restrict" }),
+  installmentNumber: integer("installment_number"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("purchases_installment_unique").on(table.installmentPlanId, table.installmentNumber)]);
+
+export const installmentPlans = sqliteTable("installment_plans", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  totalInstallments: integer("total_installments").notNull(),
+  initialPaid: integer("initial_paid").notNull().default(0),
+  firstPendingMonth: text("first_pending_month").notNull(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 

@@ -30,6 +30,8 @@ Também é possível criar objetivos financeiros com ou sem data limite, informa
 - Registro e exclusão de compras
 - Cálculo automático do saldo disponível
 - Indicadores de gasto e orçamento restante
+- Controle de compras parceladas, parcelas pagas e valores restantes
+- Registro de cada parcela paga como compra, sem duplicidade
 - Criação de objetivos financeiros
 - Data limite opcional em cada objetivo
 - Registro do valor inicial já guardado
@@ -47,6 +49,15 @@ Também é possível criar objetivos financeiros com ou sem data limite, informa
 - Os limites das categorias abrangem as duas fontes. O indicador de planejamento soma livre + vale e desconta limites e objetivos: ele não representa dinheiro de uso livre.
 - Rendas e compras antigas continuam como dinheiro livre; o vale começa em zero. A migração adiciona campos sem apagar registros.
 - Saldos negativos continuam visíveis quando há gastos acima do disponível, sem transferir a diferença entre as fontes.
+
+## Compras parceladas
+
+- Cadastre nome, valor fixo de cada parcela, total de parcelas, quantas já foram pagas e o mês da primeira pendente.
+- Acompanhe parcelas pagas/restantes, saldo devedor total e pendências até o mês selecionado (incluindo meses anteriores).
+- **Marcar como paga** cria uma única compra na categoria escolhida, usando dinheiro livre. Não lance o mesmo pagamento manualmente.
+- Pagamentos iniciais são apenas histórico e não criam gastos. Parcelas pendentes não são descontadas do saldo até o pagamento.
+- Ao excluir uma compra vinculada (ou sua categoria), a parcela volta a ficar pendente. Para excluir um parcelamento com pagamentos registrados, desfaça esses pagamentos primeiro.
+- O progresso é global, enquanto o resumo de pendências respeita o mês selecionado. Parcelas futuras são pagas selecionando o mês correspondente ou um posterior.
 
 ## Tecnologias
 

@@ -85,6 +85,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Toaster } from "@/components/ui/sonner";
+import { Installments } from "./installments";
+import type { InstallmentSummary } from "../lib/installments";
 
 type Category = {
   id: number;
@@ -137,6 +139,7 @@ type BudgetData = {
   categories: Category[];
   purchases: Purchase[];
   goals: Goal[];
+  installments: InstallmentSummary[];
 };
 
 function currentMonth() {
@@ -692,7 +695,7 @@ export default function Home() {
                                       </AlertDialogTitle>
                                       <AlertDialogDescription>
                                         {category.purchaseCount > 0
-                                          ? `${category.purchaseCount} ${category.purchaseCount === 1 ? "compra registrada será apagada" : "compras registradas serão apagadas"} junto com a categoria. O saldo do mês será recalculado.`
+                                          ? `${category.purchaseCount} ${category.purchaseCount === 1 ? "compra registrada será apagada" : "compras registradas serão apagadas"} junto com a categoria. O saldo do mês será recalculado e parcelas vinculadas voltarão a ficar pendentes.`
                                           : "A categoria será apagada deste mês. Seus objetivos e as outras categorias não serão alterados."}
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
@@ -825,6 +828,8 @@ export default function Home() {
                 </CardContent>
               </Card>
             </section>
+
+            <Installments key={month} plans={data.installments} month={month} categories={data.categories} saving={saving} runAction={runAction} />
 
             <Card className="rounded-[1.75rem] border-[#d5d9e4] bg-[#fbfcff] shadow-[0_16px_50px_-42px_rgba(47,64,103,0.65)]">
               <CardHeader className="gap-1 px-5 sm:px-6">
@@ -1078,7 +1083,7 @@ export default function Home() {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Remover esta compra?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    O valor voltará a ficar disponível em {purchase.categoryName}.
+                                    O valor voltará a ficar disponível em {purchase.categoryName}. Se for uma parcela, ela voltará a ficar pendente.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>

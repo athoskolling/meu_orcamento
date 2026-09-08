@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { calculateBalances } from "../../../lib/budget-balances";
+import { getInstallments, handleInstallmentAction } from "../../../db/installments";
 import {
   categories,
   goalContributions,
@@ -180,6 +181,7 @@ async function getBudgetData(month: string) {
     categories: normalizedCategories,
     purchases: purchaseRows,
     goals,
+    installments: await getInstallments(month),
   };
 }
 
@@ -222,7 +224,10 @@ export async function POST(request: Request) {
 
     const db = getDb();
 
-    if (action === "set-income") {
+    if (action === "add-installment" || action === "pay-installment" || action === "delete-installment") {
+      const error = await handleInstallmentAction(payload, month);
+      if (error) return error;
+    } else if (action === "set-income") {
       const incomeCents = asPositiveInteger(payload.incomeCents);
       const foodAllowanceCents = payload.foodAllowanceCents === undefined
         ? undefined
